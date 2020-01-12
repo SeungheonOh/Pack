@@ -24,9 +24,7 @@ download_package() {
 
 	mkdir "${source_dir}/$dir_name"
 	tar -vxkf "$source_dir/$package"
-
 	cd "$source_dir/$dir_name"
-
 	exec bash
 }
 
@@ -36,42 +34,43 @@ add_package() {
 	extension="${comp##*.}"
 	package=$(echo $comp | sed -n '/\.tar\.'$extension'$/s///p')
 
-	[ -z $package ] && echo "Give me compressed file: $package given" && return 0
+	[ -z $package ] && echo "Source file is required (.tar)" && return 0
 
 	check_package $package
-	[ "$?" -eq 1 ] && echo "Package already exist" && return 0
+	[ "$?" -eq 1 ] && echo "Package($package) already exist" && return 0
 
 	echo "$package" >> $package_list
 	echo "$package added"
 }
 
 sync_dir() {
-	[ -z $1 ] && echo "Useage: sync (Directory)" && exit 0
+	dir=$1
+	[ -z $1 ] && dir=$source_dir && echo "Directory not given, using default source directory:\n$source_dir" && dir=$source_dir
 
-	for file in $1/*; do
+	for file in $dir/*; do
 		comp=$(basename "$file")
 		extension="${comp##*.}"
 
 		if [ ! -z "$extension" ] && 
 				[ ! -z "$comp" ] &&
 				[ ! -d "$comp" ] &&
+				#[ "$extension" = "tgz" ] ||
 				[ "$extension" = "bz2" ] || 
 				[ "$extension" = "xz" ]  ||
-				[ "$extension" = "gz" ]  ||
-				[ "$extension" = "tgz" ]; then
+				[ "$extension" = "gz" ]; then
 			add_package $comp
 		fi
 	done
 }
 
 remove_package() {
-	[ -z $1 ] && echo "Useage: add (Package Name)" && exit 0
+	[ -z $1 ] && echo "Useage: remove (Package Name)" && exit 0
 	comp=$(basename "$1")
 	extension="${comp##*.}"
 	package=$(echo $comp | sed -n '/\.tar\.'$extension'$/s///p')
 
 	check_package $package
-	[ "$?" -eq 0 ] && echo "No package found" && return 0
+	[ "$?" -eq 0 ] || [ -z $package ] && echo "No package found $package" && return 0
 
 	sed '/'$package'/d;' $package_list >> ${package_list}.new && mv ${package_list}.new $package_list
 	echo "$package removed"
