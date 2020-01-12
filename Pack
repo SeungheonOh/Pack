@@ -23,7 +23,7 @@ download_package() {
 	wget $1 --directory-prefix=$source_dir
 
 	mkdir "${source_dir}/$dir_name"
-	tar -vxkf "$source_dir/$package"
+	tar -vxkf "$source_dir/$package" -C "$source_dir"
 	cd "$source_dir/$dir_name"
 	exec bash
 }
