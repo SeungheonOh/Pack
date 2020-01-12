@@ -10,7 +10,7 @@ Pack
 add              - adds package to the list
 sync             - adds all packages at selected directory.
 remove           - removes package from the list
-download			   - downloads the source from URL given, unzip.
+download         - downloads the source from URL given, unzip.
 list             - print list of installed packages
 count            - print package count
 ```
