@@ -1,0 +1,100 @@
+#!/bin/bash
+# Pack is a simple package manager for LFS-like linux distros, where user is in charge of 
+# installing package, checking dependencies, and checking conflict.
+# Pack is only in charge of keeping track of what and how many packages are insatlled in the system.
+
+source_dir=~/sources
+package_list=~/packages
+
+function check_package() {
+	[ $(cat $package_list | grep -c "$1") -eq 0 ] && return 0
+	return 1
+}
+
+download_package() {
+	[ -z $1 ] && echo "Useage: download (URL)" && exit 0
+	package=$(basename $1) #Compressed
+	extension="${package##*.}" # Extension
+	dir_name=$(echo $package | sed -n '/\.tar\.'$extension'$/s///p') #Wihout extension
+
+	check_package $dir_name
+	[ "$?" -eq 1 ] && echo "$dir_name is already installed" && exit 0
+
+	wget $1 --directory-prefix=$source_dir
+
+	mkdir "${source_dir}/$dir_name"
+	tar -vxkf "$source_dir/$package"
+
+	cd "$source_dir/$dir_name"
+
+	exec bash
+}
+
+add_package() {
+	[ -z $1 ] && echo "Useage: add (Package Name)" && exit 0
+	comp=$(basename "$1")
+	extension="${comp##*.}"
+	package=$(echo $comp | sed -n '/\.tar\.'$extension'$/s///p')
+
+	[ -z $package ] && echo "Give me compressed file: $package given" && return 0
+
+	check_package $package
+	[ "$?" -eq 1 ] && echo "Package already exist" && return 0
+
+	echo "$package" >> $package_list
+	echo "$package added"
+}
+
+sync_dir() {
+	[ -z $1 ] && echo "Useage: sync (Directory)" && exit 0
+
+	for file in $1/*; do
+		comp=$(basename "$file")
+		extension="${comp##*.}"
+
+		if [ ! -z "$extension" ] && 
+				[ ! -z "$comp" ] &&
+				[ ! -d "$comp" ] &&
+				[ "$extension" = "bz2" ] || 
+				[ "$extension" = "xz" ]  ||
+				[ "$extension" = "gz" ]  ||
+				[ "$extension" = "tgz" ]; then
+			add_package $comp
+		fi
+	done
+}
+
+remove_package() {
+	[ -z $1 ] && echo "Useage: add (Package Name)" && exit 0
+	comp=$(basename "$1")
+	extension="${comp##*.}"
+	package=$(echo $comp | sed -n '/\.tar\.'$extension'$/s///p')
+
+	check_package $package
+	[ "$?" -eq 0 ] && echo "No package found" && return 0
+
+	sed '/'$package'/d;' $package_list >> ${package_list}.new && mv ${package_list}.new $package_list
+	echo "$package removed"
+}
+
+package_list() {
+	cat $package_list
+}
+
+package_count() {
+	echo $(cat $package_list | wc -l)
+}
+
+main() {
+	case "$1" in 
+		add) add_package $2 ;;
+		sync) sync_dir $2 ;;
+		remove) remove_package $2 ;;
+		download) download_package $2 ;; 
+		install) download_package $2 ;; 
+		list) package_list $@ ;;
+		count) package_count $@ ;;
+		*) echo "No such command";;
+	esac
+}
+main $@
