@@ -7,93 +7,94 @@ source_dir=~/sources
 package_list=~/packages
 
 function check_package() {
-	[ $(cat $package_list | grep -c "$1") -eq 0 ] && return 0
+	[ "$(grep -c "$1" "$package_list")" -eq 0 ] && return 0
 	return 1
 }
 
 download_package() {
-	[ -z $1 ] && echo "Useage: download (URL)" && exit 0
-	package=$(basename $1) #Compressed
+	[ -z "$1" ] && echo "Usage: download (URL)" && exit 0
+	package=$(basename "$1") #Compressed
 	extension="${package##*.}" # Extension
-	dir_name=$(echo $package | sed -n '/\.tar\.'$extension'$/s///p') #Wihout extension
+	dir_name=$(echo "$package" | sed -n '/\.tar\."$extension"$/s///p') #Wihout extension
 
-	check_package $dir_name
+	check_package "$dir_name"
 	[ "$?" -eq 1 ] && echo "$dir_name is already installed" && exit 0
 
-	wget $1 --directory-prefix=$source_dir
+	wget -- "$1" --directory-prefix="$source_dir"
 
-	mkdir "${source_dir}/$dir_name"
+	mkdir -p "$source_dir/$dir_name"
 	tar -vxkf "$source_dir/$package" -C "$source_dir"
-	cd "$source_dir/$dir_name"
+	cd "$source_dir/$dir_name" || exit
 	exec bash
 }
 
 add_package() {
-	[ -z $1 ] && echo "Useage: add (Package Name)" && exit 0
+	[ -z "$1" ] && echo "Useage: add (Package Name)" && exit 0
 	comp=$(basename "$1")
 	extension="${comp##*.}"
-	package=$(echo $comp | sed -n '/\.tar\.'$extension'$/s///p')
+	package=$(echo "$comp" | sed -n '/\.tar\."$extension"$/s///p')
 
-	[ -z $package ] && echo "Source file is required (.tar)" && return 0
+	[ -z "$package" ] && echo "Source file is required (.tar)" && return 0
 
-	check_package $package
-	[ "$?" -eq 1 ] && echo "Package($package) already exist" && return 0
+	check_package "$package"
+	[ "$?" -eq 1 ] && echo "Package ($package) already exists." && return 0
 
-	echo "$package" >> $package_list
+	echo "$package" >> "$package_list"
 	echo "$package added"
 }
 
 sync_dir() {
-	dir=$1
-	[ -z $1 ] && dir=$source_dir && echo "Directory not given, using default source directory:\n$source_dir" && dir=$source_dir
+	dir="$1"
+	[ -z "$1" ] && dir="$source_dir" && printf '%b\n' "Directory not given, using default source directory:\n$source_dir" && dir="$source_dir"
 
-	for file in $dir/*; do
+	for file in "$dir"/*; do
 		comp=$(basename "$file")
 		extension="${comp##*.}"
 
-		if [ ! -z "$extension" ] && 
-				[ ! -z "$comp" ] &&
-				[ ! -d "$comp" ] &&
+		if [ -n "$extension" ] &&
+				[ -n "$comp" ] &&
+				[ -d "$comp" ] &&
 				#[ "$extension" = "tgz" ] ||
-				[ "$extension" = "bz2" ] || 
+				[ "$extension" = "bz2" ] ||
 				[ "$extension" = "xz" ]  ||
 				[ "$extension" = "gz" ]; then
-			add_package $comp
+			add_package "$comp"
 		fi
 	done
 }
 
 remove_package() {
-	[ -z $1 ] && echo "Useage: remove (Package Name)" && exit 0
+	[ -z "$1" ] && echo "Usage: remove (Package Name)." && exit 0
 	comp=$(basename "$1")
 	extension="${comp##*.}"
-	package=$(echo $comp | sed -n '/\.tar\.'$extension'$/s///p')
+	package=$(echo "$comp" | sed -n '/\.tar\."$extension"$/s///p')
 
-	check_package $package
-	[ "$?" -eq 0 ] || [ -z $package ] && echo "No package found $package" && return 0
+	check_package "$package"
+	[ "$?" -eq 0 ] || [ -z "$package" ] && echo "$package not found." && return 0
 
-	sed '/'$package'/d;' $package_list >> ${package_list}.new && mv ${package_list}.new $package_list
-	echo "$package removed"
+	sed '/"$package"/d;' $package_list >> ${package_list}.new && mv ${package_list}.new $package_list
+	echo "$package removed."
 }
 
 package_list() {
-	cat $package_list
+	cat "$package_list"
 }
 
 package_count() {
-	echo $(cat $package_list | wc -l)
+	wc -l "$package_list"
 }
 
 main() {
-	case "$1" in 
-		add) add_package $2 ;;
-		sync) sync_dir $2 ;;
-		remove) remove_package $2 ;;
-		download) download_package $2 ;; 
-		install) download_package $2 ;; 
-		list) package_list $@ ;;
-		count) package_count $@ ;;
-		*) echo "No such command";;
+	case "$1" in
+		add) add_package "$2" ;;
+		sync) sync_dir "$2" ;;
+		remove) remove_package "$2" ;;
+		download) download_package "$2" ;;
+		install) download_package "$2" ;;
+		list) package_list "$@" ;;
+		count) package_count "$@" ;;
+		*) echo "No such command.";;
 	esac
 }
-main $@
+
+main "$@"
